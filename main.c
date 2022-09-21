@@ -11,6 +11,7 @@ void delay(void)
   for (i = 0; i < 1000000; i++);
 }
 
+
 // LED_GREEN = PTD5
 void led_green_init()
 {
@@ -41,13 +42,32 @@ void led_red_toggle(void)
   GPIOE->PTOR = (1 << 29);
 }
 
+void button_init(){
+    SIM->COPC = 0;
+    SIM->SCGC5 |= SIM_SCGC5_PORTC_MASK; //habilitamos puerto B
+    PORTC->PCR[3] |= PORT_PCR_MUX(1) | PORT_PCR_PE(1);
+    GPIOC->PDDR &= ~(1 << 3); //lo establecemos como entrada (0)
+
+}
+
+int sw1_check(){
+    return(!(GPIOC->PDIR & (1<<3)));
+}
+
 int main(void)
 {
+    button_init();
   led_green_init();
 
   while (1) {
-    led_green_toggle();
-    delay();
+
+      if(sw1_check()){
+          led_green_toggle();
+          while(sw1_check()){}
+      }
+
+
+    //delay();
   }
 
   return 0;
