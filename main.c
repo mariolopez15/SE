@@ -3,6 +3,7 @@
 // LED (RG)
 // LED_GREEN = PTD5
 // LED_RED = PTE29
+// Boton = PTC3
 
 void delay(void)
 {
@@ -43,13 +44,29 @@ void led_red_toggle(void)
 }
 
 void button_init(){
+    /*
     SIM->COPC = 0;
-    SIM->SCGC5 |= SIM_SCGC5_PORTC_MASK; //habilitamos puerto B
+    SIM->SCGC5 |= SIM_SCGC5_PORTC_MASK; //habilitamos puerto C
     PORTC->PCR[3] |= PORT_PCR_MUX(1) | PORT_PCR_PE(1);
     GPIOC->PDDR &= ~(1 << 3); //lo establecemos como entrada (0)
+    */
+
+    SIM->COPC = 0;
+    SIM->SCGC5 |= SIM_SCGC5_PORTC_MASK; //habilitamos puerto C
+    //establecemos la interrupcion on fallin edge (1010)
+    PORTC->PCR[3] |= PORT_PCR_MUX(1) | PORT_PCR_PE(1) | PORT_PCR_IRQC(6) ;
+    GPIOC->PDDR &= ~(1 << 3); //lo establecemos como entrada (0)
+    NVIC_EnableIRQ(47); //habilitamos la interrupcion
+    NVIC_SetPriority(47, 0);
 
 }
 
+void PORTDIntHandler(){
+
+    PORTC->PCR[3] |=PORT_PCR_ISF(1); //limpiamos la interrupcion
+}
+
+//quitar el check
 int sw1_check(){
     return(!(GPIOC->PDIR & (1<<3)));
 }
