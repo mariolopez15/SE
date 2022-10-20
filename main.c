@@ -61,12 +61,6 @@ void led_red_set(void)
 
 // BOTON_1 = PTC3
 void button1_init(){
-    /*
-    SIM->COPC = 0;
-    SIM->SCGC5 |= SIM_SCGC5_PORTC_MASK; //habilitamos puerto B
-    PORTC->PCR[3] |= PORT_PCR_MUX(1) | PORT_PCR_PE(1);
-    GPIOC->PDDR &= ~(1 << 3); //lo establecemos como entrada (0)
-     */
     SIM->COPC = 0;
     SIM->SCGC5 |= SIM_SCGC5_PORTC_MASK; //habilitamos puerto C
     //establecemos la interrupcion on fallin edge (1010)
@@ -85,12 +79,6 @@ int sw1_check(){
 
 // BOTON_2 = PTC12
 void button2_init(){
-    /*
-    SIM->COPC = 0;
-    SIM->SCGC5 |= SIM_SCGC5_PORTC_MASK; //habilitamos puerto B
-    PORTC->PCR[12] |= PORT_PCR_MUX(1) | PORT_PCR_PE(1);
-    GPIOC->PDDR &= ~(1 << 12); //lo establecemos como entrada (0)
-     */
 
     SIM->COPC = 0;
     SIM->SCGC5 |= SIM_SCGC5_PORTC_MASK; //habilitamos puerto C
@@ -102,7 +90,6 @@ void button2_init(){
     NVIC_EnableIRQ(31); //habilitamos la interrupcion
 
 
-
 }
 
 int sw2_check(){
@@ -110,72 +97,82 @@ int sw2_check(){
 }
 
 
-void PORTDIntHandler(void){
 
+void PORTDIntHandler(void) {
+
+    PORTC->PCR[3] |=PORT_PCR_ISF(1);
+    PORTC->PCR[12] |=PORT_PCR_ISF(1);
     switch(estado){
         case 00: //ninguna abierta
-            led_green_set();
-            led_red_clear();
-                if(sw1_check()){
-                    estado=01;
-                    while(sw1_check()){}//mientras siga pulsada
-                }else if(sw2_check()){
-                    estado=10;
-                    while(sw2_check()){}
-                }
+
+            if(sw1_check()){
+                //cambiamos al estado 01 y se enciende el led correspondinte (rojo)
+                estado=01;
+                led_green_clear();
+                led_red_set();
+            }else if(sw2_check()){
+                //cambiamos al estado 10 y se enciende el led correspondinte (rojo)
+                estado=10;
+                led_green_clear();
+                led_red_set();
+            }
             break;
-                
+
         case 01: //abierta puerta 1
-            led_green_clear();
-            led_red_set();
-                if(sw1_check()){
-                    estado=00;
-                    while(sw1_check()){}
-                }else if(sw2_check()){
-                    estado=11;
-                    while(sw2_check()){}
-                }
+
+            if(sw1_check()){
+                estado=00;
+                led_green_set();
+                led_red_clear();
+            }else if(sw2_check()){
+                estado=11;
+                led_green_clear();
+                led_red_set();
+            }
 
             break;
 
         case 10: //abierta puerta 2
-            led_green_clear();
-            led_red_set();
-                if(sw1_check()){
-                    estado=11;
-                    while(sw1_check()){}
-                }else if(sw2_check()){
-                    estado=00;
-                    while(sw2_check()){}
-                }
+            if(sw1_check()){
+                estado=11;
+                led_green_clear();
+                led_red_set();
+            }else if(sw2_check()){
+                estado=00;
+                led_green_set();
+                led_red_clear();
+            }
 
             break;
 
         case 11: //ambas puertas abiertas
-            led_green_clear();
-            led_red_set();
-                if(sw1_check()){
-                    estado=10;
-                    while(sw1_check()){}
-                }else if(sw2_check()){
-                    estado=01;
-                    while(sw2_check()){}
+            if(sw1_check()){
+                estado=10;
+                led_green_clear();
+                led_red_set();
+            }else if(sw2_check()){
+                estado=01;
+                led_green_clear();
+                led_red_set();
 
-                }
+            }
             break;
     }
 
-}
 
+    return;
+}
 int main(void)
 {
     button1_init();
     button2_init();
     led_green_init();
     led_red_init();
-    estado=00;
 
-    PORTDIntHandler();//llamamos la primera vez para empezar y que se active el estado 0
+    //iniciamos los leds como en el estaod 0
+    estado=00;
+    led_green_set();
+    led_red_clear();
     while (1) {
 
     }
