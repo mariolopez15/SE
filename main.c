@@ -1,5 +1,6 @@
 #include "MKL46Z4.h"
 #include "lcd.h"
+#include <stdbool.h>
 
 // LED (RG)
 // LED_GREEN = PTD5 (pin 98)
@@ -11,6 +12,13 @@
 
 // Enable IRCLK (Internal Reference Clock)
 // see Chapter 24 in MCU doc
+
+bool led; //0-> green 1->red
+bool done; //por si ya se pulso
+uint8_t hits;
+uint8_t misses;
+
+
 void irclk_ini()
 {
   MCG->C1 = MCG_C1_IRCLKEN(1) | MCG_C1_IREFSTEN(1);
@@ -29,8 +37,10 @@ void sw1_ini()
 {
   SIM->COPC = 0;
   SIM->SCGC5 |= SIM_SCGC5_PORTC_MASK;
-  PORTC->PCR[3] |= PORT_PCR_MUX(1) | PORT_PCR_PE(1);
+  PORTC->PCR[3] |= PORT_PCR_MUX(1) | PORT_PCR_PE(1) | PORT_PCR_IRQC(0xA);
   GPIOC->PDDR &= ~(1 << 3);
+  NVIC_SetPriority(31, 0); //prioridad max
+  NVIC_EnableIRQ(31); //habilitamos la interrupcion
 }
 
 // LEFT_SWITCH (SW2) = PTC12
@@ -38,8 +48,10 @@ void sw2_ini()
 {
   SIM->COPC = 0;
   SIM->SCGC5 |= SIM_SCGC5_PORTC_MASK;
-  PORTC->PCR[12] |= PORT_PCR_MUX(1) | PORT_PCR_PE(1);
+  PORTC->PCR[12] |= PORT_PCR_MUX(1) | PORT_PCR_PE(1) | PORT_PCR_IRQC(0xA);
   GPIOC->PDDR &= ~(1 << 12);
+  NVIC_SetPriority(31, 0); //prioridad max
+  NVIC_EnableIRQ(31); //habilitamos la interrupcion
 }
 
 int sw1_check()
@@ -58,9 +70,12 @@ void sws_ini()
 {
   SIM->COPC = 0;
   SIM->SCGC5 |= SIM_SCGC5_PORTC_MASK;
-  PORTC->PCR[3] |= PORT_PCR_MUX(1) | PORT_PCR_PE(1);
-  PORTC->PCR[12] |= PORT_PCR_MUX(1) | PORT_PCR_PE(1);
+  PORTC->PCR[3] |= PORT_PCR_MUX(1) | PORT_PCR_PE(1) | PORT_PCR_IRQC(0xA) ;
+  PORTC->PCR[12] |= PORT_PCR_MUX(1) | PORT_PCR_PE(1) | PORT_PCR_IRQC(0xA) ;
   GPIOC->PDDR &= ~(1 << 3 | 1 << 12);
+
+  NVIC_SetPriority(31, 0); //prioridad max
+  NVIC_EnableIRQ(31); //habilitamos la interrupcion
 }
 
 // LED_GREEN = PTD5
@@ -78,6 +93,17 @@ void led_green_toggle()
   GPIOD->PTOR = (1 << 5);
 }
 
+void led_green_clear()
+{
+    GPIOD->PSOR = (1 << 5);
+}
+
+void led_green_set()
+{
+    GPIOD->PCOR = (1 << 5);
+}
+
+
 // LED_RED = PTE29
 void led_red_ini()
 {
@@ -92,6 +118,20 @@ void led_red_toggle(void)
 {
   GPIOE->PTOR = (1 << 29);
 }
+void led_red_clear(void)
+{
+    GPIOE->PSOR = (1 << 29);
+}
+
+void led_red_set(void)
+{
+    GPIOE->PCOR = (1 << 29);
+}
+
+bool is_green_set(){
+    GPIOE->PDOR
+}
+
 
 // LED_RED = PTE29
 // LED_GREEN = PTD5
@@ -108,6 +148,29 @@ void leds_ini()
   GPIOE->PSOR = (1 << 29);
 }
 
+void PORTDIntHandler(void) {
+
+    PORTC->PCR[3] |=PORT_PCR_ISF(1);
+    PORTC->PCR[12] |=PORT_PCR_ISF(1);
+    if(!done){
+        if(led==0){
+            if(sw1_check()){
+                hits++;
+            }else{
+                misses++;
+            }
+        }else{
+            if(sw2_check()){
+                hits++;
+            }else{
+                misses++;
+            }
+        }
+        done=true;
+    }
+
+
+}
 // Hit condition: (else, it is a miss)
 // - Left switch matches red light
 // - Right switch matches green light
@@ -116,7 +179,13 @@ int main(void)
 {
   irclk_ini(); // Enable internal ref clk to use by LCD
 
+  led_green_ini();
+  led_red_ini();
+  sws_ini();
   lcd_ini();
+  //inicializamos el marcador
+  hits=0;
+  misses=0;
   lcd_display_dec(666);
 
   // 'Random' sequence :-)
@@ -124,20 +193,38 @@ int main(void)
     index = 0;
 
   while (index < 32) {
+    done=false;
     if (sequence & (1 << index)) { //odd
       //
       // Switch on green led
       // [...]
       //
+      led=0;
+      led_green_set();
+      led_red_clear();
     } else { //even
       //
       // Switch on red led
       // [...]
       //
+      led=1;
+      led_green_clear();
+      led_red_set();
     }
+    delay();
+    done=true;//cuando se acaba el tiempo ya no sirve la pulsacion (ni fallo ni acierto)
+    led_red_clear();
+    led_green_clear();
+    delay();
+    index=1<<index;
+
     // [...]
   }
 
+  led_red_clear();
+  led_green_clear();
+  NVIC_DisableIRQ(31);
+  lcd_display_time(hits, misses);
   // Stop game and show blinking final result in LCD: hits:misses
   // [...]
   //
