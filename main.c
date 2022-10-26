@@ -14,7 +14,7 @@
 // see Chapter 24 in MCU doc
 
 bool led; //0-> green 1->red
-bool done; //por si ya se pulso
+bool done; //si ya ha sido contabilizado la pulsada en un turno
 uint8_t hits;
 uint8_t misses;
 
@@ -128,10 +128,6 @@ void led_red_set(void)
     GPIOE->PCOR = (1 << 29);
 }
 
-bool is_green_set(){
-    GPIOE->PDOR
-}
-
 
 // LED_RED = PTE29
 // LED_GREEN = PTD5
@@ -148,11 +144,12 @@ void leds_ini()
   GPIOE->PSOR = (1 << 29);
 }
 
+
 void PORTDIntHandler(void) {
 
     PORTC->PCR[3] |=PORT_PCR_ISF(1);
     PORTC->PCR[12] |=PORT_PCR_ISF(1);
-    if(!done){
+    if(!done){ //en caso de no haber sido contabiizado
         if(led==0){
             if(sw1_check()){
                 hits++;
@@ -187,6 +184,9 @@ int main(void)
   hits=0;
   misses=0;
   lcd_display_dec(666);
+  delay();
+  lcd_display_time(hits, misses);
+  delay();
 
   // 'Random' sequence :-)
   volatile unsigned int sequence = 0x32B14D98,
@@ -195,41 +195,42 @@ int main(void)
   while (index < 32) {
     done=false;
     if (sequence & (1 << index)) { //odd
-      //
+
       // Switch on green led
-      // [...]
-      //
-      led=0;
+      led=0;//led verde encencido
       led_green_set();
       led_red_clear();
     } else { //even
-      //
+
       // Switch on red led
-      // [...]
-      //
-      led=1;
+      led=1; //led rojo encendido
       led_green_clear();
       led_red_set();
     }
-    delay();
-    done=true;//cuando se acaba el tiempo ya no sirve la pulsacion (ni fallo ni acierto)
+
+    delay(); //tiempo para presionar
+    if(!done){ //en caso de no haber pulsado se cuenta como miss
+        misses++;
+        done=true;//como ya ha sido contabilizado se pone a true
+    }
     led_red_clear();
     led_green_clear();
+    lcd_display_time(hits, misses);
     delay();
-    index=1<<index;
+    index++;
 
-    // [...]
   }
 
-  led_red_clear();
-  led_green_clear();
-  NVIC_DisableIRQ(31);
-  lcd_display_time(hits, misses);
   // Stop game and show blinking final result in LCD: hits:misses
-  // [...]
-  //
+    led_red_clear();
+    led_green_clear();
+    NVIC_DisableIRQ(31);
 
   while (1) {
+      lcd_display_time(hits, misses);
+      delay();
+      lcd_ini();//clear
+      delay();
   }
 
   return 0;
