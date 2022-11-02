@@ -2,10 +2,10 @@
 #PREFIX=$(TOOLCHAIN)/arm-none-eabi-
 PREFIX=arm-none-eabi-
 
-ARCHFLAGS=-mthumb -mcpu=cortex-m0plus
+ARCHFLAGS=-mthumb -mcpu=cortex-m0plus -DCPU_MKL46Z256VLL4
 COMMONFLAGS=-g3 -Og -Wall -Werror $(ARCHFLAGS)
 
-CFLAGS=-I./includes $(COMMONFLAGS)
+CFLAGS=-I./includes -I./drivers $(COMMONFLAGS)
 LDFLAGS=$(COMMONFLAGS) --specs=nano.specs -Wl,--gc-sections,-Map,$(TARGET).map,-Tlink.ld
 LDLIBS=
 
