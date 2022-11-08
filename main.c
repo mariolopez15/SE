@@ -13,10 +13,10 @@
 // Enable IRCLK (Internal Reference Clock)
 // see Chapter 24 in MCU doc
 
-bool led; //0-> green 1->red
-bool done; //si ya ha sido contabilizado la pulsada en un turno
-uint8_t hits;
-uint8_t misses;
+bool pushed; //0-> sw1 1->sw2
+bool done; //ya se ha establecido
+uint8_t min;
+uint8_t seg;
 
 
 void irclk_ini()
@@ -146,7 +146,8 @@ void leds_ini()
 
 
 void PORTDIntHandler(void) {
-
+    //Rutina de servicio de los botones
+    /*
     PORTC->PCR[3] |=PORT_PCR_ISF(1);
     PORTC->PCR[12] |=PORT_PCR_ISF(1);
     if(!done){ //en caso de no haber sido contabiizado
@@ -165,6 +166,43 @@ void PORTDIntHandler(void) {
         }
         done=true;
     }
+    */
+
+    PORTC->PCR[3] |=PORT_PCR_ISF(1);
+    PORTC->PCR[12] |=PORT_PCR_ISF(1);
+    if(sw1_check() && sw2_check()){
+        //Si estan pulsados los dos se establece el tiempo
+        if(pushed==0){
+            seg--;
+            if(seg<0){
+                seg=59;
+            }
+        }else{
+            min--;
+            if(min<0){
+                min=59;
+            }
+        }
+
+        done=true;
+
+    }else{
+        if(sw1_check()){
+            //si esta pulsado uno se suma un segundo al tiempo
+            pushed=0;
+            seg++;
+            if(seg==60){
+                seg=0;
+            }
+        }else if(sw2_check()){
+            //Si esta pulsaodo se suma un minuto al tiempo
+            pushed=1;
+            min++;
+            if(min==60){
+                min=0;
+            }
+        }
+    }
 
 
 }
@@ -181,17 +219,26 @@ int main(void)
   sws_ini();
   lcd_ini();
   //inicializamos el marcador
-  hits=0;
-  misses=0;
-  lcd_display_dec(666);
-  delay();
-  lcd_display_time(hits, misses);
-  delay();
+  min=0;
+  seg=0;
+  done=false;
+  lcd_display_time(min, seg);
 
-  // 'Random' sequence :-)
-  volatile unsigned int sequence = 0x32B14D98,
-    index = 0;
 
+  //primero en un bucle se espera a que se establezca el tiempo, cuando este establecido se, la interrupcion por botones se deshabilita
+  //despues se llama al timer para que vaya disminuyendo el tiempo
+
+  while(!done){
+      lcd_display_time(min, seg);
+      delay();
+      lcd_ini();//clear
+      delay();
+  }
+  NVIC_DisableIRQ(31); //una vez establecida se deshabilita la interrupcion por botones
+  lcd_display_time(min, seg);
+
+  while(1){}
+  /*
   while (index < 32) {
     done=false;
     if (sequence & (1 << index)) { //odd
@@ -232,6 +279,7 @@ int main(void)
       lcd_ini();//clear
       delay();
   }
+   */
 
   return 0;
 }
