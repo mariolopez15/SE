@@ -365,6 +365,7 @@ void lcd_display_dec_c(uint16_t value)
   }
 }
 
+//Funcion del archivo asm.s
 extern int My_Div(int dividendo, int divisor);
 
 void lcd_display_dec_s(uint16_t value)

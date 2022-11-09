@@ -118,7 +118,10 @@ int main(void)
   led_green_toggle(); // State 0: LEDgreen ON
 
   lcd_ini();
+  //Usando el codigo embebido en c
   lcd_display_dec_c(1973);
+  //Usando fichero .s
+  //lcd_display_dec_s(2016);
 
   while (1) {
 
