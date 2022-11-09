@@ -318,22 +318,73 @@ void lcd_set(uint8_t value, uint8_t digit)
   }
 }
 
+int My_Div2(int a, int b)
+{
+
+    int c = 0;
+    asm(
+            " /* ASM Code */ "
+
+            "mov %[COCIENTE], #0\n\t"
+            "cont:\n\t"
+            "cmp %[MINUENDO], %[SUSTRAENDO]\n\t"
+            "blt fin\n\t"
+            "sub %[MINUENDO], %[SUSTRAENDO]\n\t"
+            "add %[COCIENTE], %[COCIENTE], #1\n\t"
+            "b cont\n\t"
+            "fin:\n\t"
+
+            : [MINUENDO] "+l" (a), [COCIENTE] "+l" (c)
+            : [SUSTRAENDO] "l" (b)
+    );
+    return c;
+
+
+
+}
+//blt
+
 
 //
 // Displays a 4 Digit number in decimal
 //
-void lcd_display_dec(uint16_t value)
+void lcd_display_dec_c(uint16_t value)
 {
   if (value > 9999) {
     //Display "Err" if value is greater than 4 digits
     lcd_display_error(0x10);
   } else {
-    lcd_set(value/1000, 1);
-    lcd_set((value - (value/1000)*1000)/100, 2);
-    lcd_set((value - (value/100)*100)/10, 3);
-    lcd_set(value - (value/10)*10, 4);
+    //lcd_set(value/1000, 1);
+    lcd_set(My_Div2(value, 1000), 1);
+    //lcd_set((value - (value/1000)*1000)/100, 2);
+    lcd_set(My_Div2((value - My_Div2(value,1000)*1000),100), 2);
+    //lcd_set((value - (value/100)*100)/10, 3);
+    lcd_set(My_Div2(value - (My_Div2(value,100)*100),10), 3);
+    //lcd_set(value - (value/10)*10, 4);
+    lcd_set(value - My_Div2(value,10)*10, 4);
   }
 }
+
+extern int My_Div(int dividendo, int divisor);
+
+void lcd_display_dec_s(uint16_t value)
+{
+    if (value > 9999) {
+        //Display "Err" if value is greater than 4 digits
+        lcd_display_error(0x10);
+    } else {
+        //lcd_set(value/1000, 1);
+        lcd_set(My_Div(value, 1000), 1);
+        //lcd_set((value - (value/1000)*1000)/100, 2);
+        lcd_set(My_Div((value - My_Div(value,1000)*1000),100), 2);
+        //lcd_set((value - (value/100)*100)/10, 3);
+        lcd_set(My_Div(value - (My_Div(value,100)*100),10), 3);
+        //lcd_set(value - (value/10)*10, 4);
+        lcd_set(value-My_Div(value,10)*10, 4);
+    }
+}
+
+
 
 
 //

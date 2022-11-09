@@ -118,7 +118,7 @@ int main(void)
   led_green_toggle(); // State 0: LEDgreen ON
 
   lcd_ini();
-  lcd_display_dec(666);
+  lcd_display_dec_c(1973);
 
   while (1) {
 
