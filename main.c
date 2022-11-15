@@ -29,7 +29,7 @@ void delay(void)
 {
   volatile int i;
 
-  for (i = 0; i < 1000000; i++);
+  for (i = 0; i < 500000; i++);
 }
 
 // RIGHT_SWITCH (SW1) = PTC3
@@ -173,22 +173,31 @@ void PORTDIntHandler(void) {
     if(sw1_check() && sw2_check()){
         //Si estan pulsados los dos se establece el tiempo
         if(pushed==0){
-            seg--;
-            if(seg<0){
+            /* Si el ultimo en ser pulsado fue el sw1(pushed == 0) quiere decir que se
+             * pulso primero el sw2 y por lo tanto esa pulsacion, al no estar aun los
+             * dos pulsados a la vez, se contó. Por eso ahora se descuenta */
+
+            if(seg==0){
+                //el anterior a 0 es 59
                 seg=59;
+            }else{
+                seg--;
             }
+
         }else{
-            min--;
-            if(min<0){
+            if(min==0){
                 min=59;
+            }else{
+                min--;
             }
         }
 
         done=true;
 
     }else{
+        //Cuando solo esta pulsado uno en un instante se actualiza el tiempo
         if(sw1_check()){
-            //si esta pulsado uno se suma un segundo al tiempo
+            //si esta pulsado se suma un segundo al tiempo
             pushed=0;
             seg++;
             if(seg==60){
@@ -219,8 +228,8 @@ int main(void)
   sws_ini();
   lcd_ini();
   //inicializamos el marcador
-  min=0;
-  seg=0;
+  min=55;
+  seg=55;
   done=false;
   lcd_display_time(min, seg);
 
@@ -230,6 +239,7 @@ int main(void)
 
   while(!done){
       lcd_display_time(min, seg);
+      delay();
       delay();
       lcd_ini();//clear
       delay();
