@@ -144,6 +144,68 @@ void leds_ini()
   GPIOE->PSOR = (1 << 29);
 }
 
+void minus_time(){
+    if(seg==0){
+        if(min!=0){
+            min--;
+            seg=59;
+        }else{
+            min=0;
+            seg=0;
+
+            //MODIFICRA UNA VARIABLE PARA QUE PARA LA INTERRUPCION (Y QUE DEJE VOLVER A SELECCIONAR UN TIEMPO)
+        }
+
+
+    }else{
+        seg--;
+    }
+
+}
+
+void tpm_ini(){
+
+    SIM->SCGC5 |= SIM_SCGC5_PORTA_MASK; //iniacilizamos el puerto A que es donde esta el TPM0
+    SIM->SCGC6 |= SIM_SCGC6_TPM0_MASK; //activamos el reloj para el TPM
+
+
+    /*
+    PORTC->PCR[8] &= ~PORT_PCR_MUX_MASK;
+    PORTC->PCR[8] |= PORT_PCR_MUX(3);
+
+    PORTC->PCR[9] &= ~PORT_PCR_MUX_MASK;
+    PORTC->PCR[9] |= PORT_PCR_MUX(3);
+    */
+
+    //SIM->SOPT2 |= (SIM_SOPT2_TPMSRC(1) | SIM_SOPT2_PLLFLLSEL_MASK);
+    SIM->SOPT2 |= SIM_SOPT2_TPMSRC(3); //trabajara con el MCGIRCLK que trabaja a 32 kHz
+    TPM0->SC = 0; //deshabilitamos el tpm para modificar el PS
+    TPM0->SC = (TPM_SC_PS(5)); //dividimos por 32
+    //Como trabaja a 32Khz pero lo dividimos entre 32 pasara 1s al completar 1000 ciclos
+    TPM0->MOD = TPM_MOD_MOD(1000); //El objetivo son 1000
+    TPM0->SC |= TPM_SC_TOIE_MASK; //habilitamos que se produzca la interrupcion
+    //TPM0->SC |=TPM_SC_TOIE(1);
+    NVIC_SetPriority(17, 0); //TPM0_IRQn es el 17
+    NVIC_ClearPendingIRQ(17);
+    NVIC_EnableIRQ(17);
+}
+
+void tmp_start(){
+    TPM0->SC |= TPM_SC_CMOD(1); //se establece el modo de conteo
+}
+
+void FTM0IntHandler() {
+    //clear pending IRQ
+    //NVIC_ClearPendingIRQ(TPM0_IRQn);
+    //lcd_display_time(0, 0);
+    PORTA->PCR[0] |=PORT_PCR_ISF(1);
+    TPM0->SC |= TPM_SC_TOF_MASK; //al ser llamado la interrupcion pone el bit del overflow a 1 ya que el valor d ela cuenta alcanzo el objetivo
+    //lcd_display_time(0, 0);
+    minus_time();
+    lcd_display_time(min, seg);
+
+}
+
 
 void PORTDIntHandler(void) {
     //Rutina de servicio de los botones
@@ -170,54 +232,65 @@ void PORTDIntHandler(void) {
 
     PORTC->PCR[3] |=PORT_PCR_ISF(1);
     PORTC->PCR[12] |=PORT_PCR_ISF(1);
-    if(sw1_check() && sw2_check()){
-        //Si estan pulsados los dos se establece el tiempo
-        if(pushed==0){
-            /* Si el ultimo en ser pulsado fue el sw1(pushed == 0) quiere decir que se
-             * pulso primero el sw2 y por lo tanto esa pulsacion, al no estar aun los
-             * dos pulsados a la vez, se contó. Por eso ahora se descuenta */
+    if(!done){
+        //Cuando el tiempo aun no este establecido, es decir cuando se pulsen los botones para establecer el valor del contador
+        if(sw1_check() && sw2_check()){
+            //Si estan pulsados los dos se establece el tiempo
+            if(pushed==0){
+                /* Si el ultimo en ser pulsado fue el sw1(pushed == 0) quiere decir que se
+                 * pulso primero el sw2 y por lo tanto esa pulsacion, al no estar aun los
+                 * dos pulsados a la vez, se contó. Por eso ahora se descuenta */
 
-            if(seg==0){
-                //el anterior a 0 es 59
-                seg=59;
+                if(seg==0){
+                    //el anterior a 0 es 59
+                    seg=59;
+                }else{
+                    seg--;
+                }
+
             }else{
-                seg--;
+                if(min==0){
+                    min=59;
+                }else{
+                    min--;
+                }
             }
+
+            done=true;
 
         }else{
-            if(min==0){
-                min=59;
-            }else{
-                min--;
+            //Cuando solo esta pulsado uno en un instante se actualiza el tiempo
+            if(sw1_check()){
+                //si esta pulsado se suma un segundo al tiempo
+                pushed=0;
+                seg++;
+                if(seg==60){
+                    seg=0;
+                }
+            }else if(sw2_check()){
+                //Si esta pulsaodo se suma un minuto al tiempo
+                pushed=1;
+                min++;
+                if(min==60){
+                    min=0;
+                }
             }
         }
-
-        done=true;
 
     }else{
-        //Cuando solo esta pulsado uno en un instante se actualiza el tiempo
-        if(sw1_check()){
-            //si esta pulsado se suma un segundo al tiempo
-            pushed=0;
-            seg++;
-            if(seg==60){
-                seg=0;
-            }
-        }else if(sw2_check()){
-            //Si esta pulsaodo se suma un minuto al tiempo
-            pushed=1;
-            min++;
-            if(min==60){
-                min=0;
-            }
-        }
+        //Una vez establecida el valor del contador, para cuando se pulse los botones para empezar la cuenta
+        //lcd_display_time(0, 0);
+        tmp_start();
     }
-
 
 }
 // Hit condition: (else, it is a miss)
 // - Left switch matches red light
 // - Right switch matches green light
+
+
+
+
 
 int main(void)
 {
@@ -227,9 +300,10 @@ int main(void)
   led_red_ini();
   sws_ini();
   lcd_ini();
+  tpm_ini();
   //inicializamos el marcador
-  min=55;
-  seg=55;
+  min=0;
+  seg=15;
   done=false;
   lcd_display_time(min, seg);
 
@@ -237,6 +311,7 @@ int main(void)
   //primero en un bucle se espera a que se establezca el tiempo, cuando este establecido se, la interrupcion por botones se deshabilita
   //despues se llama al timer para que vaya disminuyendo el tiempo
 
+  //mientras no haya un tiempo establecido
   while(!done){
       lcd_display_time(min, seg);
       delay();
@@ -244,52 +319,11 @@ int main(void)
       lcd_ini();//clear
       delay();
   }
-  NVIC_DisableIRQ(31); //una vez establecida se deshabilita la interrupcion por botones
+  //NVIC_DisableIRQ(31); //una vez establecida se deshabilita la interrupcion por botones
   lcd_display_time(min, seg);
 
   while(1){}
-  /*
-  while (index < 32) {
-    done=false;
-    if (sequence & (1 << index)) { //odd
 
-      // Switch on green led
-      led=0;//led verde encencido
-      led_green_set();
-      led_red_clear();
-    } else { //even
-
-      // Switch on red led
-      led=1; //led rojo encendido
-      led_green_clear();
-      led_red_set();
-    }
-
-    delay(); //tiempo para presionar
-    if(!done){ //en caso de no haber pulsado se cuenta como miss
-        misses++;
-        done=true;//como ya ha sido contabilizado se pone a true
-    }
-    led_red_clear();
-    led_green_clear();
-    lcd_display_time(hits, misses);
-    delay();
-    index++;
-
-  }
-
-  // Stop game and show blinking final result in LCD: hits:misses
-    led_red_clear();
-    led_green_clear();
-    NVIC_DisableIRQ(31);
-
-  while (1) {
-      lcd_display_time(hits, misses);
-      delay();
-      lcd_ini();//clear
-      delay();
-  }
-   */
 
   return 0;
 }
