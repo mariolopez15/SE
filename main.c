@@ -15,6 +15,7 @@
 
 bool pushed; //0-> sw1 1->sw2
 bool done; //ya se ha establecido
+bool counted;
 uint8_t min;
 uint8_t seg;
 
@@ -144,47 +145,17 @@ void leds_ini()
   GPIOE->PSOR = (1 << 29);
 }
 
-void minus_time(){
-    if(seg==0){
-        if(min!=0){
-            min--;
-            seg=59;
-        }else{
-            min=0;
-            seg=0;
-
-            //MODIFICRA UNA VARIABLE PARA QUE PARA LA INTERRUPCION (Y QUE DEJE VOLVER A SELECCIONAR UN TIEMPO)
-        }
-
-
-    }else{
-        seg--;
-    }
-
-}
 
 void tpm_ini(){
 
     SIM->SCGC5 |= SIM_SCGC5_PORTA_MASK; //iniacilizamos el puerto A que es donde esta el TPM0
     SIM->SCGC6 |= SIM_SCGC6_TPM0_MASK; //activamos el reloj para el TPM
-
-
-    /*
-    PORTC->PCR[8] &= ~PORT_PCR_MUX_MASK;
-    PORTC->PCR[8] |= PORT_PCR_MUX(3);
-
-    PORTC->PCR[9] &= ~PORT_PCR_MUX_MASK;
-    PORTC->PCR[9] |= PORT_PCR_MUX(3);
-    */
-
-    //SIM->SOPT2 |= (SIM_SOPT2_TPMSRC(1) | SIM_SOPT2_PLLFLLSEL_MASK);
     SIM->SOPT2 |= SIM_SOPT2_TPMSRC(3); //trabajara con el MCGIRCLK que trabaja a 32 kHz
     TPM0->SC = 0; //deshabilitamos el tpm para modificar el PS
-    TPM0->SC = (TPM_SC_PS(5)); //dividimos por 32
+    TPM0->SC = (TPM_SC_PS(4)); //dividimos por 32
     //Como trabaja a 32Khz pero lo dividimos entre 32 pasara 1s al completar 1000 ciclos
-    TPM0->MOD = TPM_MOD_MOD(1000); //El objetivo son 1000
+    TPM0->MOD = TPM_MOD_MOD(2000); //El objetivo son 1000
     TPM0->SC |= TPM_SC_TOIE_MASK; //habilitamos que se produzca la interrupcion
-    //TPM0->SC |=TPM_SC_TOIE(1);
     NVIC_SetPriority(17, 0); //TPM0_IRQn es el 17
     NVIC_ClearPendingIRQ(17);
     NVIC_EnableIRQ(17);
@@ -194,13 +165,27 @@ void tmp_start(){
     TPM0->SC |= TPM_SC_CMOD(1); //se establece el modo de conteo
 }
 
+
+void minus_time(){
+
+    if(seg==0){
+        if(min!=0){
+            min--;
+            seg=59;
+        }else{
+            min=0;
+            seg=0;
+            counted=true;
+        }
+    }else{
+        seg--;
+    }
+
+}
+
 void FTM0IntHandler() {
-    //clear pending IRQ
-    //NVIC_ClearPendingIRQ(TPM0_IRQn);
-    //lcd_display_time(0, 0);
     PORTA->PCR[0] |=PORT_PCR_ISF(1);
     TPM0->SC |= TPM_SC_TOF_MASK; //al ser llamado la interrupcion pone el bit del overflow a 1 ya que el valor d ela cuenta alcanzo el objetivo
-    //lcd_display_time(0, 0);
     minus_time();
     lcd_display_time(min, seg);
 
@@ -208,28 +193,6 @@ void FTM0IntHandler() {
 
 
 void PORTDIntHandler(void) {
-    //Rutina de servicio de los botones
-    /*
-    PORTC->PCR[3] |=PORT_PCR_ISF(1);
-    PORTC->PCR[12] |=PORT_PCR_ISF(1);
-    if(!done){ //en caso de no haber sido contabiizado
-        if(led==0){
-            if(sw1_check()){
-                hits++;
-            }else{
-                misses++;
-            }
-        }else{
-            if(sw2_check()){
-                hits++;
-            }else{
-                misses++;
-            }
-        }
-        done=true;
-    }
-    */
-
     PORTC->PCR[3] |=PORT_PCR_ISF(1);
     PORTC->PCR[12] |=PORT_PCR_ISF(1);
     if(!done){
@@ -278,18 +241,11 @@ void PORTDIntHandler(void) {
         }
 
     }else{
-        //Una vez establecida el valor del contador, para cuando se pulse los botones para empezar la cuenta
-        //lcd_display_time(0, 0);
+        //Una vez establecida el valor del contador, cuando se pulse cualquiera de los botones se empezara a contar
         tmp_start();
     }
 
 }
-// Hit condition: (else, it is a miss)
-// - Left switch matches red light
-// - Right switch matches green light
-
-
-
 
 
 int main(void)
@@ -303,26 +259,29 @@ int main(void)
   tpm_ini();
   //inicializamos el marcador
   min=0;
-  seg=15;
-  done=false;
+  seg=0;
+  done=false; //sera true cuando se establezca el tiempo
+  counted=false; //sera true cuando se haya acabado de contar
   lcd_display_time(min, seg);
 
 
-  //primero en un bucle se espera a que se establezca el tiempo, cuando este establecido se, la interrupcion por botones se deshabilita
-  //despues se llama al timer para que vaya disminuyendo el tiempo
 
   //mientras no haya un tiempo establecido
   while(!done){
+      //cuando se haya establecido un tiempo done valdra true
       lcd_display_time(min, seg);
       delay();
       delay();
       lcd_ini();//clear
       delay();
   }
-  //NVIC_DisableIRQ(31); //una vez establecida se deshabilita la interrupcion por botones
   lcd_display_time(min, seg);
 
-  while(1){}
+  while(!counted){
+      //cuando se haya  llegado al min=0 y seg=0 counted valdra true
+  }
+  //paramos el timer tmp
+  TPM0->SC = 0;
 
 
   return 0;
