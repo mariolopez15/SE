@@ -157,7 +157,6 @@ void tpm_ini(){
     TPM0->MOD = TPM_MOD_MOD(2000); //El objetivo son 1000
     TPM0->SC |= TPM_SC_TOIE_MASK; //habilitamos que se produzca la interrupcion
     NVIC_SetPriority(17, 0); //TPM0_IRQn es el 17
-    NVIC_ClearPendingIRQ(17);
     NVIC_EnableIRQ(17);
 }
 
@@ -184,7 +183,7 @@ void minus_time(){
 }
 
 void FTM0IntHandler() {
-    PORTA->PCR[0] |=PORT_PCR_ISF(1);
+    NVIC_ClearPendingIRQ(17);
     TPM0->SC |= TPM_SC_TOF_MASK; //al ser llamado la interrupcion pone el bit del overflow a 1 ya que el valor d ela cuenta alcanzo el objetivo
     minus_time();
     lcd_display_time(min, seg);
