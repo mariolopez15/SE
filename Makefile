@@ -15,7 +15,7 @@ OBJCOPY=$(PREFIX)objcopy
 SIZE=$(PREFIX)size
 RM=rm -f
 
-TARGET=main
+TARGET=tpm
 
 SRC=$(wildcard *.c drivers/*.c)
 OBJ=$(patsubst %.c, %.o, $(SRC))
