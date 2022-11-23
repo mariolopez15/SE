@@ -3,6 +3,13 @@
 #include "task.h"
 #include "lcd.h"
 
+
+void irclk_ini()
+{
+    MCG->C1 = MCG_C1_IRCLKEN(1) | MCG_C1_IREFSTEN(1);
+    MCG->C2 = MCG_C2_IRCS(0); //0 32KHZ internal reference clock; 1= 4MHz irc
+}
+
 void led_green_init()
 {
 	SIM->COPC = 0;
@@ -44,28 +51,30 @@ void taskLedRed(void *pvParameters)
     for (;;) {
         led_red_toggle();
         vTaskDelay(500/portTICK_RATE_MS);
+
     }
 }
 
 int main(void)
 {
+    irclk_ini();
     lcd_ini();
 	led_green_init();
 	led_red_init();
+    lcd_display_dec(1234);
 
 
 
 	/* create green led task */
-	xTaskCreate(taskLedGreen, (signed char *)"TaskLedGreen",
+	xTaskCreate(taskLedGreen, "TaskLedGreen",
 		configMINIMAL_STACK_SIZE, (void *)NULL, 1, NULL);
 
 	/* create red led task */
-	xTaskCreate(taskLedRed, (signed char *)"TaskLedRed",
+	xTaskCreate(taskLedRed, "TaskLedRed",
 		configMINIMAL_STACK_SIZE, (void *)NULL, 1, NULL);
 
 	/* start the scheduler */
 	vTaskStartScheduler();
-    lcd_display_dec(1);
 
 	/* should never reach here! */
 	for (;;);
