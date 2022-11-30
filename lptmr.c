@@ -153,7 +153,7 @@ int main(void) {
     lptmr_ini();
     //inicializamos el marcador
     min_lptmr = 0;
-    seg_lptmr = 20;
+    seg_lptmr = 0;
     done_lptmr = false; //sera true cuando se establezca el tiempo
     counted_lptmr = false; //sera true cuando se haya acabado de contar
     lcd_display_time(min_lptmr, seg_lptmr);
