@@ -1,8 +1,18 @@
 #include "MKL46Z4.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "queue.h"
 #include "lcd.h"
 
+#define P_PRODUCTOR 1 //Prioridad del productor
+#define P_CONSUMIDOR 1 //Prioridad del consumidor
+
+QueueHandle_t queueHandle;
+int counter;
+int numero;
+TaskHandle_t tLCD = NULL;
+TaskHandle_t tProd = NULL;
+TaskHandle_t tCons = NULL;
 
 void irclk_ini()
 {
@@ -38,22 +48,42 @@ void led_red_toggle(void)
 	GPIOE->PTOR = (1 << 29);
 }
 
-void taskLedGreen(void *pvParameters)
-{
-    for (;;) {
-        led_green_toggle();
-        vTaskDelay(200/portTICK_RATE_MS);
-    }
-}
-
-void taskLedRed(void *pvParameters)
+void taskConsumidor(void *pvParameters)
 {
     for (;;) {
         led_red_toggle();
-        vTaskDelay(500/portTICK_RATE_MS);
+        xQueueReceive(queueHandle, &numero, 0);
+        vTaskDelay(150/portTICK_RATE_MS);
 
     }
 }
+
+void taskProductor(void *pvParameters)
+{
+    int i=0;
+    for (;;) {
+        i++;
+        counter++;
+        led_green_toggle();
+        xQueueSend( queueHandle,  &i, 0  );
+        vTaskDelay(100/portTICK_RATE_MS);
+    }
+}
+
+
+
+void taskLCD(void *pvParameters)
+{
+    for (;;) {
+        //counter++;
+        UBaseType_t i=uxQueueSpacesAvailable( queueHandle );
+        lcd_display_dec(9999-(int)i);
+        vTaskDelay(10/portTICK_RATE_MS);
+
+    }
+}
+
+
 
 int main(void)
 {
@@ -62,22 +92,32 @@ int main(void)
 	led_green_init();
 	led_red_init();
     lcd_display_dec(1234);
+    counter=0;
+
+    queueHandle = xQueueCreate( 9999, 0);
 
 
+    //Productor
+    xTaskCreate(taskProductor, "TaskProductor",
+                configMINIMAL_STACK_SIZE, (void *)NULL, 1, &tProd);
 
-	/* create green led task */
-	xTaskCreate(taskLedGreen, "TaskLedGreen",
-		configMINIMAL_STACK_SIZE, (void *)NULL, 1, NULL);
 
-	/* create red led task */
-	xTaskCreate(taskLedRed, "TaskLedRed",
-		configMINIMAL_STACK_SIZE, (void *)NULL, 1, NULL);
+    //Consumidor
+     xTaskCreate(taskConsumidor, "TaskConsumidor",
+                        configMINIMAL_STACK_SIZE, (void *)NULL, 1, tCons);
 
-	/* start the scheduler */
-	vTaskStartScheduler();
 
-	/* should never reach here! */
-	for (;;);
+    //muestra el valor por el lcd
+    xTaskCreate(taskLCD, "TaskLCD",
+                configMINIMAL_STACK_SIZE, (void *)NULL, 4, &tLCD);
+
+    /* start the scheduler */
+    vTaskStartScheduler();
+
+    /* should never reach here! */
+    for (;;){}
+
+
 
 	return 0;
 }
