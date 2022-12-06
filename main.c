@@ -35,6 +35,15 @@ void led_green_toggle()
 {
 	GPIOD->PTOR = (1 << 5);
 }
+void led_green_clear()
+{
+    GPIOD->PSOR = (1 << 5);
+}
+
+void led_green_set()
+{
+    GPIOD->PCOR = (1 << 5);
+}
 
 void led_red_init()
 {
@@ -49,17 +58,28 @@ void led_red_toggle(void)
 {
 	GPIOE->PTOR = (1 << 29);
 }
+void led_red_clear(void)
+{
+    GPIOE->PSOR = (1 << 29);
+}
+
+void led_red_set(void)
+{
+    GPIOE->PCOR = (1 << 29);
+}
 
 void taskConsumidor(void *pvParameters)
 {
     for (;;) {
 
         if( xSemaphoreTake( countMutex, ( TickType_t ) 110 ) == pdTRUE ) {
-            led_red_toggle();
+            //led_red_toggle();
+            led_red_set();
             xQueueReceive(queueHandle, &numero, 0);
             counter--;
             vTaskDelay(100 / portTICK_RATE_MS);
             xSemaphoreGive(countMutex);
+            led_red_clear();
         }
         //vTaskDelay(1 / portTICK_RATE_MS);
         //vTaskDelay(100 / portTICK_RATE_MS);
@@ -75,10 +95,12 @@ void taskProductor(void *pvParameters)
 
         if( xSemaphoreTake( countMutex, ( TickType_t ) 110 ) == pdTRUE ){
             led_green_toggle();
+            led_green_set();
             xQueueSend( queueHandle,  &i, 0);
             counter++;
             vTaskDelay(100 / portTICK_RATE_MS);
             xSemaphoreGive(countMutex);
+            led_green_clear();
         }
         //vTaskDelay(1 / portTICK_RATE_MS);
         //vTaskDelay(100 / portTICK_RATE_MS);
