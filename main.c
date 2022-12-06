@@ -3,6 +3,7 @@
 #include "task.h"
 #include "queue.h"
 #include "lcd.h"
+#include "semphr.h"
 
 #define P_PRODUCTOR 1 //Prioridad del productor
 #define P_CONSUMIDOR 1 //Prioridad del consumidor
@@ -13,6 +14,7 @@ int numero;
 TaskHandle_t tLCD = NULL;
 TaskHandle_t tProd = NULL;
 TaskHandle_t tCons = NULL;
+SemaphoreHandle_t countMutex;
 
 void irclk_ini()
 {
@@ -51,9 +53,16 @@ void led_red_toggle(void)
 void taskConsumidor(void *pvParameters)
 {
     for (;;) {
-        led_red_toggle();
-        xQueueReceive(queueHandle, &numero, 0);
-        vTaskDelay(150/portTICK_RATE_MS);
+
+        if( xSemaphoreTake( countMutex, ( TickType_t ) 110 ) == pdTRUE ) {
+            led_red_toggle();
+            xQueueReceive(queueHandle, &numero, 0);
+            counter--;
+            vTaskDelay(100 / portTICK_RATE_MS);
+            xSemaphoreGive(countMutex);
+        }
+        //vTaskDelay(1 / portTICK_RATE_MS);
+        //vTaskDelay(100 / portTICK_RATE_MS);
 
     }
 }
@@ -63,10 +72,17 @@ void taskProductor(void *pvParameters)
     int i=0;
     for (;;) {
         i++;
-        counter++;
-        led_green_toggle();
-        xQueueSend( queueHandle,  &i, 0  );
-        vTaskDelay(100/portTICK_RATE_MS);
+
+        if( xSemaphoreTake( countMutex, ( TickType_t ) 110 ) == pdTRUE ){
+            led_green_toggle();
+            xQueueSend( queueHandle,  &i, 0);
+            counter++;
+            vTaskDelay(100 / portTICK_RATE_MS);
+            xSemaphoreGive(countMutex);
+        }
+        //vTaskDelay(1 / portTICK_RATE_MS);
+        //vTaskDelay(100 / portTICK_RATE_MS);
+
     }
 }
 
@@ -75,10 +91,24 @@ void taskProductor(void *pvParameters)
 void taskLCD(void *pvParameters)
 {
     for (;;) {
-        //counter++;
-        UBaseType_t i=uxQueueSpacesAvailable( queueHandle );
-        lcd_display_dec(9999-(int)i);
-        vTaskDelay(10/portTICK_RATE_MS);
+
+
+        if( xSemaphoreTake( countMutex, ( TickType_t ) 10 ) == pdTRUE ) {
+            //lcd_display_dec(counter);
+
+            if(counter<0){
+                lcd_display_dec(0);
+            }else if(counter>9999){
+                lcd_display_dec(9999);
+            }else{
+                lcd_display_dec(counter);
+            }
+
+
+            xSemaphoreGive(countMutex);
+        }
+        //le ponemmos delay para que puedan coger el mutex los otros procesos
+        vTaskDelay(100 / portTICK_RATE_MS);
 
     }
 }
@@ -94,8 +124,11 @@ int main(void)
     lcd_display_dec(1234);
     counter=0;
 
-    queueHandle = xQueueCreate( 9999, 0);
-
+    queueHandle = xQueueCreate(9999, 0);
+    countMutex = xSemaphoreCreateMutex();
+    if(countMutex==NULL){
+        countMutex = xSemaphoreCreateMutex();
+    }
 
     //Productor
     xTaskCreate(taskProductor, "TaskProductor",
