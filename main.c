@@ -5,8 +5,11 @@
 #include "lcd.h"
 #include "semphr.h"
 
+//LA PRIORIDAD DEL LCD DEBE DE SER LA MAYOR PARA QUE PUEDA MOSTRAR EL VALOR DE LA CUENTA
 #define P_PRODUCTOR 1 //Prioridad del productor
 #define P_CONSUMIDOR 1 //Prioridad del consumidor
+#define P_LCD 4 //Prioridad del LCD
+
 
 QueueHandle_t queueHandle;
 int counter;
@@ -75,9 +78,13 @@ void taskConsumidor(void *pvParameters)
         if( xSemaphoreTake( countMutex, ( TickType_t ) 110 ) == pdTRUE ) {
             //led_red_toggle();
             led_red_set();
-            xQueueReceive(queueHandle, &numero, 0);
-            counter--;
-            vTaskDelay(100 / portTICK_RATE_MS);
+            if(counter>0){
+                xQueueReceive(queueHandle, &numero, 0);
+                counter--;
+                vTaskDelay(100 / portTICK_RATE_MS);
+
+            }
+
             xSemaphoreGive(countMutex);
             led_red_clear();
         }
@@ -116,7 +123,7 @@ void taskLCD(void *pvParameters)
 
 
         if( xSemaphoreTake( countMutex, ( TickType_t ) 10 ) == pdTRUE ) {
-            //lcd_display_dec(counter);
+            //Se coge el mutex para leer el valor de la cuenta
 
             if(counter<0){
                 lcd_display_dec(0);
@@ -154,17 +161,17 @@ int main(void)
 
     //Productor
     xTaskCreate(taskProductor, "TaskProductor",
-                configMINIMAL_STACK_SIZE, (void *)NULL, 1, &tProd);
+                configMINIMAL_STACK_SIZE, (void *)NULL, P_PRODUCTOR, &tProd);
 
 
     //Consumidor
      xTaskCreate(taskConsumidor, "TaskConsumidor",
-                        configMINIMAL_STACK_SIZE, (void *)NULL, 1, tCons);
+                        configMINIMAL_STACK_SIZE, (void *)NULL, P_CONSUMIDOR, tCons);
 
 
     //muestra el valor por el lcd
     xTaskCreate(taskLCD, "TaskLCD",
-                configMINIMAL_STACK_SIZE, (void *)NULL, 4, &tLCD);
+                configMINIMAL_STACK_SIZE, (void *)NULL, P_LCD, &tLCD);
 
     /* start the scheduler */
     vTaskStartScheduler();
