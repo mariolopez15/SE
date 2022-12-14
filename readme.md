@@ -1,7 +1,3 @@
-No veo ninguna diferencia ql modificar la priridad de las tareas, se siguen ejecutando igual.
-
--El lCD se tiene que peelar por el mutex??
-
 
 Como el lcd debe mostrar el valor de la cuenta este tiene que acceder a los datos.
 Por lo que para que se visualice correctamemnte el calor de la cuenta el lcd debe de terne asignada una prioridad mayor a la de consumidor y a lade productor.
