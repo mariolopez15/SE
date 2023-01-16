@@ -41,6 +41,12 @@ void led_red_toggle(void)
   GPIOE->PTOR = (1 << 29);
 }
 
+
+
+void PORTDIntHandler(void) {
+    //SI SE PULSA UN BOTON
+}
+
 int main(void)
 {
   led_green_init();
